@@ -26,11 +26,11 @@ void mpu_init(){
   mpu.setZAccelOffset(ACC_Z_OFFSET);
 
   #ifdef DEBUG_
-  mpu.setRate(11);
+  mpu.setRate(3);
   #else
   mpu.setRate(0);
   #endif
-  mpu.setDLPFMode(1);
+  mpu.setDLPFMode(0);
 
   if (devStatus == 0){
     mpu.setDMPEnabled(true);
@@ -72,7 +72,10 @@ void mpu_update(){
   }else if (mpuIntStatus & 0x02) {
     if (fifoCount >= packetSize){
       
-      mpu.getFIFOBytes(fifoBuffer, packetSize);
+      while (fifoCount >= packetSize){
+        mpu.getFIFOBytes(fifoBuffer, packetSize);
+        fifoCount -=packetSize;
+      }
       mpu_updated = true;
       
       // Calculate everything
@@ -90,9 +93,14 @@ void mpu_update(){
       
       for(int i=0;i<3;i++){
         ypr[i]*=RadToDeg;
+        #ifdef DEBUG_
+//        Serial.print(ypr[i]);Serial.print(" ");
+        #endif
 //        longs[i] = (long)ypr[i];
       } // Convert to degrees
-      
+      #ifdef DEBUG_
+//      Serial.println();
+      #endif
     }
   }
 }

@@ -1,27 +1,30 @@
 
-#define RX_AVERAGE_COUNT 3
+//#define RX_AVERAGE_COUNT 3
 int positives[] = {RX_THROTTLE, RX_AUX1, RX_AUX2};
 volatile int rx_time[6] = {0, 0, 0, 0, 0, 0}; // Values for the receiver, they will be assigned for global access
-int rx_time_last[6][RX_AVERAGE_COUNT];
-int rx_time_av_c = 0;
-int rx_time_av[6];
+//int rx_time_last[6][RX_AVERAGE_COUNT];
+//int rx_time_av_c = 0;
+//int rx_time_av[6];
 
 int rx_limits[6][2];
 
 
 bool rx_ready = false; // Turns true when the rx is configured
-void rx_init(){
-  // Set the limits
+void rx_reset_limits(){
   for(int i=0;i<6;i++)
     for(byte e=0;e<2;e++)
-      rx_limits[i][e] = 1500;
+      rx_limits[i][e] = 1500; 
+}
+void rx_init(){
+  // Set the limits
+  rx_reset_limits();
   
   for(byte i=0;i<6;i++)
     pinMode(pgm_read_byte(&rxPins[i]),INPUT);
   
   // Set Interrupts
-  PCICR |= (1 << PCIE2) | (1 << PCIE1); 
-  PCMSK2 |= (1 << PCINT18)|(1 << PCINT20); 
+  PCICR |= (1 << PCIE2) | (1 << PCIE1);
+  PCMSK2 |= (1 << PCINT18)|(1 << PCINT20);
   PCMSK1 |= (1 << PCINT8)|(1 << PCINT9)|(1 << PCINT10)|(1 << PCINT11);
   sei();
 
@@ -34,28 +37,28 @@ Timer t0;
 
 //************************************
 
-#define RX_MENU_V 90
+#define RX_MENU_V 75
 #define RX_MENU_T 1000
-#define RX_FLYING_TO_IDDLE_T 10000
-int rx_stable = 10; // Value used by RXConfig to ditch first 10 values of RX
-volatile bool rx_receiving = false;
+#define RX_FLYING_TO_IDDLE_T 7000
+//int rx_stable = 10; // Value used by RXConfig to ditch first 10 values of RX
+//volatile bool rx_receiving = false;
 void rx_update(){// Will set the rx_vals based on the rx_limits and rx_time and control the mode since RX is main/only input
 
   // Set last times for average
-  if(rx_receiving){
-    for(int i = 0;i<6;i++){
-      rx_time_last[i][rx_time_av_c] = rx_time[i];
-      rx_time_av[i] = 0;
-      for(int e = 0;e<RX_AVERAGE_COUNT;e++)
-        rx_time_av[i] += rx_time_last[i][e] / RX_AVERAGE_COUNT;
-    }
-    rx_time_av_c++;if(rx_time_av_c==RX_AVERAGE_COUNT)rx_time_av_c = 0; // Upping counter
-  }
+//  if(rx_receiving){
+//    for(int i = 0;i<6;i++){
+//      rx_time_last[i][rx_time_av_c] = rx_time[i];
+//      rx_time_av[i] = 0;
+//      for(int e = 0;e<RX_AVERAGE_COUNT;e++)
+//        rx_time_av[i] += rx_time_last[i][e] / RX_AVERAGE_COUNT;
+//    }
+//    rx_time_av_c++;if(rx_time_av_c==RX_AVERAGE_COUNT)rx_time_av_c = 0; // Upping counter
+//  }
   
   // Map the values
   for(int i=0;i<6;i++)
-    rx_vals[i] = clamp((int)(((float) rx_time_av[i] - (float) rx_limits[i][0]) * (100.0 - (-100.0)) / ((float) rx_limits[i][1] - (float) rx_limits[i][0]) + (-100.0)), -100, 100);
-//    rx_vals[i] = clamp(map(rx_time_av[i], rx_limits[i][0], rx_limits[i][1], -100, 100), -100, 100); 
+//    rx_vals[i] = clamp((int)(((double) rx_time[i] - (double) rx_limits[i][0]) * (100.0 - (-100.0)) / ((double) rx_limits[i][1] - (double) rx_limits[i][0]) + (-100.0)), -100, 100);
+    rx_vals[i] = clamp(map(rx_time[i], rx_limits[i][0], rx_limits[i][1], -100, 100), -100, 100); 
   
   for(int i=0;i<3;i++)
     rx_vals[positives[i]] = (rx_vals[positives[i]] + 100)/2; // Map values for 0 - 100 only
@@ -77,12 +80,12 @@ void rx_update(){// Will set the rx_vals based on the rx_limits and rx_time and 
       }
       
       // Configure limits
-      if(!rx_stable){
+//      if(!rx_stable){
         for(int i = 0;i<6;i++){
           if(rx_time[i] < rx_limits[i][0] && rx_time[i] > 900)rx_limits[i][0] = rx_time[i];
           if(rx_time[i] > rx_limits[i][1] && rx_time[i] < 2000)rx_limits[i][1] = rx_time[i];
         } 
-      }else if(rx_receiving)rx_stable--;
+//      }else if(rx_receiving)rx_stable--;
       
       // Exit function
       if(rx_limits[RX_ROLL][1] - rx_limits[RX_ROLL][0] > 200 && 
@@ -160,7 +163,7 @@ void rx_update(){// Will set the rx_vals based on the rx_limits and rx_time and 
       break;
   }
   
-  rx_receiving = false;
+//  rx_receiving = false;
 }
 
 
@@ -185,6 +188,7 @@ void set_mode(Mode n_mode){
   switch(n_mode){ // What happens when entering
     case RXConfig:
       scream_forever(50, 9000);
+      rx_reset_limits();
       break;
     case Flying:
       scream_once(700);
@@ -214,7 +218,7 @@ volatile unsigned long rx_prev[6]={0,0,0,0,0,0};
 
 ISR(PCINT1_vect) 
 {
-  rx_receiving = true;
+//  rx_receiving = true;
   for(byte i=0;i<6;i++){
     byte rx_temp=digitalRead(pgm_read_byte(&rxPins[i]));
     if((rx_state[i] == 0) && (rx_temp==1)){

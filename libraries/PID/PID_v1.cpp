@@ -12,6 +12,7 @@
 #endif
 
 #include <PID_v1.h>
+#include <Common.h>
 
 /*Constructor (...)*********************************************************
  *    The parameters specified here are those for for which we can't set up
@@ -59,13 +60,13 @@ bool PID::Compute()
 {
    if(!inAuto) return false;
    unsigned long now = millis();
-   unsigned long timeChange = (now - lastTime);
+   unsigned long timeChange = now - lastTime;
    if(timeChange>=SampleTime)
    {
       /*Compute all the working error variables*/
       double input = *myInput;
       double error = *mySetpoint - input;
-      double dInput = (input - lastInput);
+      double dInput = wrap(input - lastInput, -180.0, 180.0);
       outputSum+= (ki * error);
 
       /*Add Proportional on Measurement, if P_ON_M is specified*/

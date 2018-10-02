@@ -28,10 +28,6 @@ int motor_offsets[4]; // Flight controller will set these, motors will decide ho
 double longs[4]; // Debug longs that will be  sent over RF24 to the debug station
 
 
-
-int throttle=MOTOR_ZERO_LEVEL;
-byte rateAngleSwitch = 0;
-
 #if DEBUG_SAMPLE_COUNT > 0
 unsigned long d_time;
 #endif
@@ -44,13 +40,17 @@ void setup() {
   pinMode(SCREAM_PIN, OUTPUT);
   
   // SETUP ******************************
+  flight_init();
+  
   mpu_init();
   rf24_init();
-  flight_init();
+  
   rx_init();
 
   
-  
+#if DEBUG_SAMPLE_COUNT > 0
+  d_time = micros();
+#endif
 }
 #if DEBUG_SAMPLE_COUNT > 0
 uint8_t d_sc = 0;
@@ -59,33 +59,48 @@ uint16_t d_samples[DEBUG_SAMPLE_COUNT];
 bool mpu_updated = false;
 void loop() {
   
+
+
+  // LOOP*******************************
+  
+  scream_update(); // About 0 msc
+  mpu_update(); // About 1000 msc
+  
+  rf24_update(); // About 15 msc
+  rx_update(); // About 300 msc
+
 #if DEBUG_SAMPLE_COUNT > 0
   d_time = micros();
 #endif
 
-  // LOOP*******************************
-  scream_update();
-  mpu_update();
-  rf24_update();
-  rx_update();
-  flight_update();
-
-  if (mpu_updated){
-    mpu_updated = false;
-    
-
-#if DEBUG_SAMPLE_COUNT > 0
+  
+  
+  
+  
+  #if DEBUG_SAMPLE_COUNT > 0
     d_samples[d_sc++] = micros() - d_time;
     if (d_sc == DEBUG_SAMPLE_COUNT)d_sc = 0;
     
-    longs[2] = 0;
+    uint16_t ave = 0;
     
     for(int i = 0;i<DEBUG_SAMPLE_COUNT;i++)
-      longs[2] += d_samples[i] / DEBUG_SAMPLE_COUNT;
+      ave += d_samples[i] / DEBUG_SAMPLE_COUNT;
 #endif
 #if DEBUG_SAMPLE_COUNT > 0 and defined(DEBUG_)
-    Serial.println(longs[2]);
+    Serial.println(ave);
 #endif
+  
+  
+  if (mpu_updated){
+    mpu_updated = false;
+    
+    flight_update();
+    
+    if (mode == Iddle)
+      for (int i = 0; i<3; i++)
+        longs[i] = ypr[i];
+
+
     
   }
 }

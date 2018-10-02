@@ -22,17 +22,17 @@
 
 #define PID_SAMPLE_TIME 1 // Time in milliseconds for PID calculation
 
-#define PITCH_PID_KP  20.0
-#define PITCH_PID_KI  5.0
-#define PITCH_PID_KD  5.0
-#define PITCH_PID_MIN  -50.0
-#define PITCH_PID_MAX  50.0
+#define PITCH_PID_KP  2.25
+#define PITCH_PID_KI  9.50
+#define PITCH_PID_KD  0.11
+#define PITCH_PID_MIN  -300.0
+#define PITCH_PID_MAX  300.0
 
-#define YAW_PID_KP  10.0
+#define YAW_PID_KP  4.0
 #define YAW_PID_KI  4.0
-#define YAW_PID_KD  0.1
-#define YAW_PID_MIN  -50.0
-#define YAW_PID_MAX  50.0
+#define YAW_PID_KD  0.01
+#define YAW_PID_MIN  -100.0
+#define YAW_PID_MAX  100.0
 
 //#define ANGLEX_KP 5.0
 //#define ANGLEX_KI 0.02
@@ -51,7 +51,7 @@
 
 //----Debug Config---------
 
-//#define DEBUG_SAMPLE_COUNT 0
+//#define DEBUG_SAMPLE_COUNT 100
 //#define DEBUG
 //#define DEBUG_
 //#define DEBUG_ANGLES
@@ -65,14 +65,15 @@
 
 //*********Sensor Config****************
 
-#define GYRO_X_OFFSET  89
-#define GYRO_Y_OFFSET  -19
+
+#define ACC_X_OFFSET  2546
+#define ACC_Y_OFFSET  -295
+#define ACC_Z_OFFSET  964
+
+
+#define GYRO_X_OFFSET  87
+#define GYRO_Y_OFFSET  -21
 #define GYRO_Z_OFFSET  34
-
-#define ACC_X_OFFSET  2665
-#define ACC_Y_OFFSET  -214
-#define ACC_Z_OFFSET  973
-
 
 
 
@@ -94,7 +95,7 @@
 
 //Motor PWM Levels
 #define MOTOR_ZERO_LEVEL  1000
-//#define MOTOR_ARM_START  1400
+#define MOTOR_ARM_LEVEL  1300
 #define MOTOR_MAX_LEVEL  2000
 
 //Motor Pins

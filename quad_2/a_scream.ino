@@ -20,6 +20,8 @@ void scream_forever(int on_time, int off_time){
   
   scream_on = true;
   digitalWrite(SCREAM_PIN, scream_on);
+
+  scream_t.disable();
 }
 void scream_mult(int on_time, int off_time, int counter){
   if (counter < 1)return;
@@ -30,6 +32,8 @@ void scream_mult(int on_time, int off_time, int counter){
   
   scream_on = true;
   digitalWrite(SCREAM_PIN, scream_on);
+
+  scream_t.disable();
 }
 void scream_once(int on_time){
   scream_mult(on_time, 0, 1);

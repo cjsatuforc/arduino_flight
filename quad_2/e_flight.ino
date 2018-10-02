@@ -42,6 +42,12 @@ void reset_pid(){
   pids[1].SetTunings(PITCH_PID_KP, PITCH_PID_KI, PITCH_PID_KD);
   pids[2].SetTunings(PITCH_PID_KP, PITCH_PID_KI, PITCH_PID_KD);
 }
+void reset_flight(){
+  for(int i =0;i<4;i++){
+    pids[i].Reset();
+  }
+  set[0] = ypr[0];
+}
 // ******************************************************
 
 
@@ -56,15 +62,34 @@ void flight_init(){
   pids[0].SetOutputLimits(YAW_PID_MIN, YAW_PID_MAX);
   pids[1].SetOutputLimits(PITCH_PID_MIN, PITCH_PID_MAX);
   pids[2].SetOutputLimits(PITCH_PID_MIN, PITCH_PID_MAX);
-  
+
+  // Attach motors
   for(int i =0;i<4;i++){
     pinMode(motor_pins[i], OUTPUT);
     motors[i].attach(motor_pins[i]);
-    motors[i].writeMicroseconds(MOTOR_ZERO_LEVEL);
   }
+
+  // Check if motors have been programmed, if not program them
+  if (!eeprom_esc(EEPROM_LOAD)){
+    for(int i =0;i<4;i++)
+      motors[i].writeMicroseconds(MOTOR_MAX_LEVEL);
+    delay(6000);
+    for(int i =0;i<4;i++)
+      motors[i].writeMicroseconds(MOTOR_ARM_LEVEL);
+    delay(7000);
+    
+    eeprom_esc(EEPROM_SAVE);
+  }
+
+  for(int i =0;i<4;i++)
+    motors[i].writeMicroseconds(MOTOR_ZERO_LEVEL);
+  
+  
 
   for(int i=0;i<3;i++)
     pids[i].SetMode(AUTOMATIC);
+
+  
 }
 
 void zero_motors(){
@@ -94,9 +119,11 @@ void flight_update(){
     curr_pids[2] = pids[pid_pull].GetKd();
 
     // Get pid index required, by wrapping the config_value to be less than 3
-    int pid_index = config_value;
-    while(pid_index > 2)pid_index -= 3;
-    curr_pids[pid_index] = clamp(curr_pids[pid_index] + (double)rx_vals[RX_AUX1] / 100.0 * (double)rx_vals[RX_YAW] / 100.0 * 0.01, 0.0, 20.0);
+    if (abs(rx_vals[RX_YAW]) > 20){// Just so we don't change the values we don't wanna change :)
+      int pid_index = config_value;
+      while(pid_index > 2)pid_index -= 3;
+      curr_pids[pid_index] = clamp(curr_pids[pid_index] + (double)rx_vals[RX_AUX1] / 100.0 * (double)rx_vals[RX_YAW] / 100.0 * 0.01, 0.0, 20.0);
+    }
     
     // Change PIDS in debug long
     for(int i=0;i<3;i++)
@@ -104,6 +131,8 @@ void flight_update(){
     
     // Set the pids back
     pids[pid_pull].SetTunings(curr_pids[0], curr_pids[1], curr_pids[2]);
+    if(config_value >= 3)
+      pids[pid_pull + 1].SetTunings(curr_pids[0], curr_pids[1], curr_pids[2]); 
   }
   
   // **************************************
@@ -112,19 +141,15 @@ void flight_update(){
   if (!(mode == Flying))return;
   
   // PID UPDATE **************************
-  // To understand this better, I inverted the yaw value because there's wrapping when the quad reaches 180 degrees, 
-  // it goes to -180, so I accomodate for that by setting the input and keeping the setpoint at 0
-  // Set the inputs
-  yaw_set = wrap(yaw_set + (rx_vals[RX_YAW] / 100) * RX_MAX_ANGLE, -180.0, 180.0); // Update the yaw set
-  in[0] = wrap(ypr[0] - yaw_set, -180.0, 180.0);
-  for(int i = 1; i<3; i++)
+  for(int i = 0; i<3; i++)
     in[i] = ypr[i];
   
   // Setpoints are a little more complicated
-  set[0] = 0; // YAW
+  if (abs(rx_vals[RX_YAW]) > 20)
+    set[0] = wrap(set[0] + (rx_vals[RX_YAW] / 100) * 0.02 * RX_MAX_ANGLE, -180.0, 180.0); // YAW
   set[1] = (rx_vals[RX_PITCH] / 100) * RX_MAX_ANGLE;
   set[2] = (rx_vals[RX_ROLL] / 100) * RX_MAX_ANGLE;
-
+  
 
   for(int i=0;i<3;i++)
     pids[i].Compute();
@@ -152,16 +177,25 @@ void flight_update(){
   // Motor UPDATE **************************
 //  int throttle = ( / 100) * 600 + MOTOR_ZERO_LEVEL;
   int m_vals[] = { // Configured as positive PID means clockwise, forward, right
-    map(rx_vals[RX_THROTTLE],10,100, motors_start[0], MOTOR_MAX_LEVEL - 150) - out[0] - out[1] + out[2],
-    map(rx_vals[RX_THROTTLE],10,100, motors_start[1], MOTOR_MAX_LEVEL - 150) + out[0] - out[1] - out[2],
-    map(rx_vals[RX_THROTTLE],10,100, motors_start[2], MOTOR_MAX_LEVEL - 150) - out[0] + out[1] - out[2],
-    map(rx_vals[RX_THROTTLE],10,100, motors_start[3], MOTOR_MAX_LEVEL - 150) + out[0] + out[1] + out[2]
+    map(rx_vals[RX_THROTTLE],20,100, motors_start[0], MOTOR_MAX_LEVEL - 150) - out[0] - out[1] + out[2],
+    map(rx_vals[RX_THROTTLE],20,100, motors_start[1], MOTOR_MAX_LEVEL - 150) + out[0] - out[1] - out[2],
+    map(rx_vals[RX_THROTTLE],20,100, motors_start[2], MOTOR_MAX_LEVEL - 150) - out[0] + out[1] - out[2],
+    map(rx_vals[RX_THROTTLE],20,100, motors_start[3], MOTOR_MAX_LEVEL - 150) + out[0] + out[1] + out[2]
   };
   
+  if (rx_vals[RX_THROTTLE] < 10){
+    for (int i = 0; i<4; i++)
+      m_vals[i] = MOTOR_ZERO_LEVEL;
+    reset_flight();
+  }
+  for (int i = 0; i<3; i++)
+    longs[i] = out[i];
+  
+  longs[3] = set[0]; // DEBUGGING
+  
   for (int i = 0; i<4; i++){
-    m_vals[i] = clamp(m_vals[i], MOTOR_ZERO_LEVEL, MOTOR_MAX_LEVEL);
-    
-    longs[i] = m_vals[i];
+    m_vals[i] = clamp(m_vals[i], MOTOR_ZERO_LEVEL-100, MOTOR_MAX_LEVEL);
+//    longs[i] = m_vals[i];
     motors[i].writeMicroseconds(m_vals[i]);
   }
 }
